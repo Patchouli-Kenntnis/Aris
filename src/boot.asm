@@ -1,6 +1,8 @@
 org 0x7C00 ; BIOS loads boot sector to 0x7C00
 bits 16 ; 16 bit mode
 %define ENDL 0x0D, 0x0A ; new line characters
+hex_buffer: db '0x0000', 0 ; buffer to store hex string
+
 
 start:
 	jmp main ; jump to main
@@ -28,7 +30,41 @@ print:
 	pop si ; restore source index register
 	ret ; return
 
+; print hex
+; Input: AL = value to print
+; Output: None
+;
+print_hex:
+	push ax         ; save registers
+	mov ah, al      ; move AL to AH
+	shr al, 4       ; shift AL 4 bits to the right
+	call hex_to_ascii ; call hex_to_ascii
+	mov ah, al      ; move AL to AH
+	and ah, 0x0F    ; mask the lower 4 bits
+	call hex_to_ascii ; call hex_to_ascii
 
+	pop ax          ; restore registers
+
+	mov ecx, hex_buffer  ; Load address of hex_buffer into ecx
+	mov [ecx], ah    ; Store the most significant nibble in the buffer
+	mov [ecx+1], al  ; Store the least significant nibble in the buffer
+	mov esi, hex_buffer ; Point SI to the beginning of hex_buffer
+	call print       ; Call the print function to print the hex string
+	ret              ; return
+
+; hex to ASCII
+; Input: AL = value to convert
+; Output: AL = ASCII value
+;
+hex_to_ascii:
+	add al, '0'     ; convert to ASCII
+	cmp al, '9'     ; check if AL is greater than '9'
+	jbe .done       ; if not, jump to done
+	add al, 'A' - '9' - 1 ; convert to ASCII
+.done:
+	ret             ; return
+
+	
 
 main:
 	; setup data segment
@@ -55,6 +91,9 @@ msg: db "AL - 1S. System booting...", ENDL, \
     "#  We thirst for the seven wailings.   #", ENDL, \
     "#  We bear the koan of Jericho.        #", ENDL, \
     "########################################", ENDL, 0 ; message to print
+
+mov ah, 0x0E ; teletype output
+;call print_hex ; call print_hex
 
 times 510-($-$$) db 0 ; fill the rest of sector with 0s
 dw 0xAA55 ; boot signature
