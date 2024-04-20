@@ -12,9 +12,7 @@ start:
 ; Output: None
 ;
 print:
-	push si ; save source index register to the stack
-	push ax ; save registers
-
+	pusha ; save registers
 .loop:
 	lodsb ; load byte from [SI] to AL and increment SI
 	or al, al ; check if AL is 0 (end of string)
@@ -26,45 +24,49 @@ print:
     jmp .loop ; loop
 
 .done:
-	pop ax ; restore registers
-	pop si ; restore source index register
+	popa ; restore registers
 	ret ; return
 
-; print hex
-; Input: AL = value to print
+; print hex value 
+; Input: DX = value to print
 ; Output: None
 ;
 print_hex:
-	push ax         ; save registers
-	mov ah, al      ; move AL to AH
-	shr al, 4       ; shift AL 4 bits to the right
-	call hex_to_ascii ; call hex_to_ascii
-	mov ah, al      ; move AL to AH
-	and ah, 0x0F    ; mask the lower 4 bits
-	call hex_to_ascii ; call hex_to_ascii
+; prints the value of DX as hex
+print_hex:
+	pusha
+	mov bx, hex_buffer ; store pointer to hex value
+	add bx, 0x5     ; move pointer to end of string
 
-	pop ax          ; restore registers
+loop:
+	mov cl, dl  ; copy dx  value into cl
+	cmp cl, 0   ; check if 0
+	je end_loop ; if 0 then we're done
 
-	mov ecx, hex_buffer  ; Load address of hex_buffer into ecx
-	mov [ecx], ah    ; Store the most significant nibble in the buffer
-	mov [ecx+1], al  ; Store the least significant nibble in the buffer
-	mov esi, hex_buffer ; Point SI to the beginning of hex_buffer
-	call print       ; Call the print function to print the hex string
-	ret              ; return
+	and cl, 0xF ; mask first half byte
+	cmp cl, 0xA ; compare to A
+	jl lt_A     ; if <  A go to lt_A
+	jmp gte_A   ; if >= A go to gte_A
 
-; hex to ASCII
-; Input: AL = value to convert
-; Output: AL = ASCII value
-;
-hex_to_ascii:
-	add al, '0'     ; convert to ASCII
-	cmp al, '9'     ; check if AL is greater than '9'
-	jbe .done       ; if not, jump to done
-	add al, 'A' - '9' - 1 ; convert to ASCII
-.done:
-	ret             ; return
+lt_A: ; add 48 
+	add cl, 48  ; add 48 to bring it to ascii '0'
+	jmp end_cmp ; go to end of this code block
+gte_A: ; add 55
+	add cl, 55  ; add 55 to bring it to ascii 'A'
+	jmp end_cmp ; go to end of this code block
 
-	
+end_cmp:
+	mov [bx], cl  ; put value into dereferenced pointer
+	sub bx, 1     ; decrement pointer
+	shr dx, 4     ; shift right 4 bits to get the next half byte
+	jmp loop      ; go back to start of loop
+
+end_loop:
+	mov si, hex_buffer   ; print the string pointed to
+	call print ; by SI
+	popa
+	ret
+
 
 main:
 	; setup data segment
@@ -80,6 +82,9 @@ main:
     lea si, [msg] ; load address of msg to SI
     call print ; call print function
 
+	mov dx, 0x1fb6 ; teletype output
+	call print_hex ; call print_hex
+
 
 
 end:
@@ -91,9 +96,6 @@ msg: db "AL - 1S. System booting...", ENDL, \
     "#  We thirst for the seven wailings.   #", ENDL, \
     "#  We bear the koan of Jericho.        #", ENDL, \
     "########################################", ENDL, 0 ; message to print
-
-mov ah, 0x0E ; teletype output
-;call print_hex ; call print_hex
 
 times 510-($-$$) db 0 ; fill the rest of sector with 0s
 dw 0xAA55 ; boot signature
