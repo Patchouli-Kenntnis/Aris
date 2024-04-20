@@ -32,8 +32,6 @@ print:
 ; Output: None
 ;
 print_hex:
-; prints the value of DX as hex
-print_hex:
 	pusha
 	mov bx, hex_buffer ; store pointer to hex value
 	add bx, 0x5     ; move pointer to end of string
