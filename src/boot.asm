@@ -32,8 +32,6 @@ print:
 ; Output: None
 ;
 print_hex:
-; prints the value of DX as hex
-print_hex:
 	pusha
 	mov bx, hex_buffer ; store pointer to hex value
 	add bx, 0x5     ; move pointer to end of string
@@ -82,7 +80,7 @@ main:
     lea si, [msg] ; load address of msg to SI
     call print ; call print function
 
-	mov dx, 0x1fb6 ; teletype output
+	mov dx, 0x8964 ; teletype output
 	call print_hex ; call print_hex
 
 
