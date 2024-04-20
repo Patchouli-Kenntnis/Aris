@@ -7,6 +7,10 @@ hex_buffer: db '0x0000', 0 ; buffer to store hex string
 start:
 	jmp main ; jump to main
 
+
+
+
+
 ; print string
 ; Input: SI = pointer to string
 ; Output: None
@@ -80,9 +84,30 @@ main:
     lea si, [msg] ; load address of msg to SI
     call print ; call print function
 
-	mov dx, 0x1fb6 ; teletype output
-	call print_hex ; call print_hex
+	; use BIOS to read the disk
+	mov ah, 0x02 ; read disk
+	mov dl, 0 ; read from floppy disk
+	mov ch, 3 ; cylinder 3
+	mov dh, 0 ; head 1 (0-based)
+	mov cl, 4 ; sector 4 (1-based)
+	mov al, 5 ; read 5 sectors
 
+	; Set the memory address to read to
+	; es:bx = segment:offset
+	; CPU will translate 0xa000:0x1234 to physical address 0xa1234
+
+	mov bx, 0xa000 
+	mov es, bx ; indirectly set es to 0xa000
+	mov bx, 0x1234 ; set bx to 0x1234
+
+	int 0x13 ; call BIOS interrupt
+	jc disk_error ; jump if carry flag is set
+
+	cmp al, 5 ; check if 5 sectors were read
+	jne disk_error ; jump to disk_error if not
+
+	lea si, [disk_success_msg] ; load address of disk_success_msg to SI
+	call print ; call print function
 
 
 end:
@@ -94,6 +119,17 @@ msg: db "AL - 1S. System booting...", ENDL, \
     "#  We thirst for the seven wailings.   #", ENDL, \
     "#  We bear the koan of Jericho.        #", ENDL, \
     "########################################", ENDL, 0 ; message to print
+
+
+
+disk_error_msg: db "Disk error", ENDL, 0 ; disk error message
+
+disk_success_msg: db "Disk read successfully", ENDL, 0 ; disk success message
+
+disk_error:
+	lea si, [disk_error_msg] ; load address of disk_error_msg to SI
+	call print ; call print function
+	jmp end ; loop forever
 
 times 510-($-$$) db 0 ; fill the rest of sector with 0s
 dw 0xAA55 ; boot signature
