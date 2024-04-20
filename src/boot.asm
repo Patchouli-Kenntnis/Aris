@@ -1,6 +1,8 @@
 org 0x7C00 ; BIOS loads boot sector to 0x7C00
 bits 16 ; 16 bit mode
 %define ENDL 0x0D, 0x0A ; new line characters
+hex_buffer: db '0x0000', 0 ; buffer to store hex string
+
 
 start:
 	jmp main ; jump to main
@@ -10,9 +12,7 @@ start:
 ; Output: None
 ;
 print:
-	push si ; save source index register to the stack
-	push ax ; save registers
-
+	pusha ; save registers
 .loop:
 	lodsb ; load byte from [SI] to AL and increment SI
 	or al, al ; check if AL is 0 (end of string)
@@ -24,10 +24,48 @@ print:
     jmp .loop ; loop
 
 .done:
-	pop ax ; restore registers
-	pop si ; restore source index register
+	popa ; restore registers
 	ret ; return
 
+; print hex value 
+; Input: DX = value to print
+; Output: None
+;
+print_hex:
+; prints the value of DX as hex
+print_hex:
+	pusha
+	mov bx, hex_buffer ; store pointer to hex value
+	add bx, 0x5     ; move pointer to end of string
+
+loop:
+	mov cl, dl  ; copy dx  value into cl
+	cmp cl, 0   ; check if 0
+	je end_loop ; if 0 then we're done
+
+	and cl, 0xF ; mask first half byte
+	cmp cl, 0xA ; compare to A
+	jl lt_A     ; if <  A go to lt_A
+	jmp gte_A   ; if >= A go to gte_A
+
+lt_A: ; add 48 
+	add cl, 48  ; add 48 to bring it to ascii '0'
+	jmp end_cmp ; go to end of this code block
+gte_A: ; add 55
+	add cl, 55  ; add 55 to bring it to ascii 'A'
+	jmp end_cmp ; go to end of this code block
+
+end_cmp:
+	mov [bx], cl  ; put value into dereferenced pointer
+	sub bx, 1     ; decrement pointer
+	shr dx, 4     ; shift right 4 bits to get the next half byte
+	jmp loop      ; go back to start of loop
+
+end_loop:
+	mov si, hex_buffer   ; print the string pointed to
+	call print ; by SI
+	popa
+	ret
 
 
 main:
@@ -43,6 +81,9 @@ main:
 	; print message
     lea si, [msg] ; load address of msg to SI
     call print ; call print function
+
+	mov dx, 0x1fb6 ; teletype output
+	call print_hex ; call print_hex
 
 
 
