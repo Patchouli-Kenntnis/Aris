@@ -8,7 +8,31 @@ start:
 	jmp main ; jump to main
 
 
+; load DH sectors to ES:BX from drive DL
+; Output: None
+disk_load :
+	push dx ; Store DX on stack so later we can recall
+	; how many sectors were request to be read ,
+	; even if it is altered in the meantime
+	mov ah , 0x02 ; BIOS read sector function
+	mov al , dh ; Read DH sectors
+	mov ch , 0x00 ; Select cylinder 0
+	mov dh , 0x00 ; Select head 0
+	mov cl , 0x02 ; Start reading from second sector ( i.e.
+	; after the boot sector )
+	int 0x13 ; BIOS interrupt
 
+	; check for error
+	jc disk_error ; Jump if error ( i.e. carry flag set )
+	pop dx ; Restore DX from the stack
+	cmp dh , al ; if AL ( sectors read ) != DH ( sectors expected )
+	jne disk_error ; display error message
+	
+	; if no error, print success message
+	lea si, [disk_success_msg] ; load address of disk_success_msg to SI
+	call print ; call print function
+
+	ret
 
 
 ; print string
@@ -39,7 +63,11 @@ print_hex:
 	pusha
 	mov bx, hex_buffer ; store pointer to hex value
 	add bx, 0x5     ; move pointer to end of string
-
+	mov byte [hex_buffer + 2], 48 ; reset hex_buffer as '0x0000' as the digits can be changed by previous calls
+	mov byte [hex_buffer + 3], 48 
+	mov byte [hex_buffer + 4], 48 
+	mov byte [hex_buffer + 5], 48 
+	
 loop:
 	mov cl, dl  ; copy dx  value into cl
 	cmp cl, 0   ; check if 0
@@ -84,30 +112,24 @@ main:
     lea si, [msg] ; load address of msg to SI
     call print ; call print function
 
-	; use BIOS to read the disk
-	mov ah, 0x02 ; read disk
-	mov dl, 0 ; read from floppy disk
-	mov ch, 3 ; cylinder 3
-	mov dh, 0 ; head 1 (0-based)
-	mov cl, 4 ; sector 4 (1-based)
-	mov al, 5 ; read 5 sectors
+	; load sectors
+	mov [BOOT_DRIVE], dl ; save boot drive
 
-	; Set the memory address to read to
-	; es:bx = segment:offset
-	; CPU will translate 0xa000:0x1234 to physical address 0xa1234
+	mov bp, 0x8000 ; base pointer to 0x8000
+	mov sp, bp ; stack pointer to 0x8000
 
-	mov bx, 0xa000 
-	mov es, bx ; indirectly set es to 0xa000
-	mov bx, 0x1234 ; set bx to 0x1234
+	mov bx, 0x9000 ; buffer address
+	mov dh, 5 ; read 5 sectors
+	mov dl, [BOOT_DRIVE] ; boot drive
+	call disk_load ; call disk_load function
 
-	int 0x13 ; call BIOS interrupt
-	jc disk_error ; jump if carry flag is set
+	mov dx, [0x9000] ; Print out the first loaded word, which
+	call print_hex ; we expect to be 0x1989 , stored
+	; at address 0x9000
 
-	cmp al, 5 ; check if 5 sectors were read
-	jne disk_error ; jump to disk_error if not
 
-	lea si, [disk_success_msg] ; load address of disk_success_msg to SI
-	call print ; call print function
+	mov dx , [0x9000 + 720] ; Also, print the first word from the second
+	call print_hex ; 2nd loaded sector : should be 0x0604
 
 
 end:
@@ -131,5 +153,15 @@ disk_error:
 	call print ; call print function
 	jmp end ; loop forever
 
+; Global variables
+BOOT_DRIVE : db 0 ; boot drive
+
 times 510-($-$$) db 0 ; fill the rest of sector with 0s
 dw 0xAA55 ; boot signature
+
+; We know that BIOS will load only the first 512 - byte sector from the disk ,
+; so if we purposely add a few more sectors to our code by repeating some
+; familiar numbers , we can prove to ourselfs that we actually loaded those
+; additional two sectors from the disk we booted from.
+times 256 dw 0x1989
+times 256 dw 0x0604
