@@ -64,6 +64,7 @@ print_hex:
 	mov bx, hex_buffer ; store pointer to hex value
 	add bx, 0x5     ; move pointer to end of string
 
+	
 loop:
 	mov cl, dl  ; copy dx  value into cl
 	cmp cl, 0   ; check if 0
@@ -119,6 +120,14 @@ main:
 	mov dl, [BOOT_DRIVE] ; boot drive
 	call disk_load ; call disk_load function
 
+	mov dx, [0x9000] ; Print out the first loaded word, which
+	call print_hex ; we expect to be 0x1989 , stored
+	; at address 0x9000
+
+
+	mov dx , [0x9000 + 720] ; Also, print the first word from the second
+	call print_hex ; 2nd loaded sector : should be 0x0604
+
 
 end:
 	hlt ; halt the CPU
@@ -146,3 +155,10 @@ BOOT_DRIVE : db 0 ; boot drive
 
 times 510-($-$$) db 0 ; fill the rest of sector with 0s
 dw 0xAA55 ; boot signature
+
+; We know that BIOS will load only the first 512 - byte sector from the disk ,
+; so if we purposely add a few more sectors to our code by repeating some
+; familiar numbers , we can prove to ourselfs that we actually loaded those
+; additional two sectors from the disk we booted from.
+times 256 dw 0x1989
+times 256 dw 0x0604
