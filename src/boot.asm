@@ -63,7 +63,10 @@ print_hex:
 	pusha
 	mov bx, hex_buffer ; store pointer to hex value
 	add bx, 0x5     ; move pointer to end of string
-
+	mov byte [hex_buffer + 2], 48 ; reset hex_buffer as '0x0000' as the digits can be changed by previous calls
+	mov byte [hex_buffer + 3], 48 
+	mov byte [hex_buffer + 4], 48 
+	mov byte [hex_buffer + 5], 48 
 	
 loop:
 	mov cl, dl  ; copy dx  value into cl
