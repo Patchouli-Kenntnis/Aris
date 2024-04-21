@@ -5,12 +5,6 @@ hex_buffer: db '0x0000', 0 ; buffer to store hex string
 BOOT_DRIVE: db 0 ; boot drive number
 
 
-mov [BOOT_DRIVE], dl ; store boot drive number
-
-
-
-
-
 start:
 	jmp main ; jump to main
 
@@ -101,6 +95,7 @@ end_loop:
 
 main:
 	; setup data segment
+	mov [BOOT_DRIVE], dl ; store boot drive number
 	mov ax, 0 
 	mov ds, ax  ; set data segment to 0
 	mov es, ax  ; set extra segment to 0
