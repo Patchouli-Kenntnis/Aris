@@ -2,12 +2,41 @@ org 0x7C00 ; BIOS loads boot sector to 0x7C00
 bits 16 ; 16 bit mode
 %define ENDL 0x0D, 0x0A ; new line characters
 hex_buffer: db '0x0000', 0 ; buffer to store hex string
+BOOT_DRIVE: db 0 ; boot drive number
+
+
+mov [BOOT_DRIVE], dl ; store boot drive number
+
+
+
 
 
 start:
 	jmp main ; jump to main
 
+; load DH sectors to ES:BX from drive DL
+; Input: DL = drive number
+; DH = number of sectors to read
+; ES = segment to load to
+; BX = offset to load to
+; Output: None
+disk_load:
+	push dx; save registers
 
+	mov ah, 0x02 ; read disk
+	mov al, dh ; number of sectors to read
+	mov ch, 0x00 ; cylinder 0
+	mov dh, 0x00 ; head 0
+	mov cl, 0x02 ; sector 2
+
+	int 0x13 ; call BIOS interrupt
+
+	jc disk_error ; jump if carry flag is set
+
+	pop dx ; restore registers
+	cmp dh, al; check if all sectors were read
+	jne disk_error ; jump to disk_error if not
+	ret ; return
 
 
 
@@ -84,6 +113,18 @@ main:
     lea si, [msg] ; load address of msg to SI
     call print ; call print function
 
+
+	mov bx, 0x9000 ; load sectors to ES 0x0000 : BX 0x9000
+	mov dh, 5 ; read 5 sectors
+	mov dl, [BOOT_DRIVE] ; load boot drive number to DL
+	call disk_load ; call disk_load function
+
+	mov dx, [0x9000] ; load first word from 0x9000 to DX
+	call print_hex ; call print_hex function
+
+	mov dx, [0x9000 + 512] ; load first word from the second sector to DX
+	call print_hex ; call print_hex function
+
 	; use BIOS to read the disk
 	mov ah, 0x02 ; read disk
 	mov dl, 0 ; read from floppy disk
@@ -133,3 +174,10 @@ disk_error:
 
 times 510-($-$$) db 0 ; fill the rest of sector with 0s
 dw 0xAA55 ; boot signature
+
+; We know that BIOS will load only the first 512 - byte sector from the disk ,
+; so if we purposely add a few more sectors to our code by repeating some
+; familiar numbers , we can prove to ourselfs that we actually loaded those
+; additional two sectors from the disk we booted from.
+times 256 dw 0xdada
+times 256 dw 0xface
